@@ -4,6 +4,7 @@ from datetime import datetime
 from datatable import f,join,sort
 import sys
 import os
+from tqdm import tqdm
 
 n = len(sys.argv)
 
@@ -12,7 +13,12 @@ if n == 1:
     sys.exit()
 
 inPath = sys.argv[1]
-outPath = os.path.dirname(inPath) + "/formatted_transactions.csv"
+
+inFile = os.path.split(inPath)[1].split("_")[0]
+outFile = inFile + "-formatted_transactions.csv"
+# outPath = os.path.dirname(inPath) + "/formatted_transactions.csv"
+outPath = os.path.join(os.path.dirname(inPath), outFile)
+print(f"Saving to {outPath}")
 
 raw = dt.fread(inPath, columns = dt.str32)
 
@@ -37,7 +43,7 @@ firstTs = -1
 
 with open(outPath, 'w') as writer:
     writer.write(header)
-    for i in range(raw.nrows):
+    for i in tqdm(range(raw.nrows)):
         datetime_object = datetime.strptime(raw[i,"Timestamp"], '%Y/%m/%d %H:%M')
         ts = datetime_object.timestamp()
         day = datetime_object.day
