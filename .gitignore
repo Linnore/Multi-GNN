@@ -5,3 +5,11 @@ log/*
 *.json
 *.yaml
 *.wandb
+logs/*
+output/*
+data/*
+wandb/*
+model/*
+*.ipynb
+.ipynb_checkpoints/*
+command.sh

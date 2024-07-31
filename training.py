@@ -48,8 +48,6 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds,
 
         pred = torch.cat(preds, dim=0).detach().cpu().numpy()
         ground_truth = torch.cat(ground_truths, dim=0).detach().cpu().numpy()
-        logging.info(
-            f"Ground: {ground_truths.sum()} / {ground_truths.numel()}")
         f1 = f1_score(ground_truth, pred)
         wandb.log({"f1/train": f1}, step=epoch)
         logging.info(f'Train F1: {f1:.4f}')
@@ -111,8 +109,6 @@ def train_hetero(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds,
             out = out[('node', 'to', 'node')]
             pred = out[mask]
             ground_truth = batch['node', 'to', 'node'].y[mask]
-            logging.info(
-                f"Ground: {ground_truth.sum()} / {ground_truth.numel()}")
             preds.append(pred.argmax(dim=-1))
             ground_truths.append(batch['node', 'to', 'node'].y[mask])
             loss = loss_fn(pred, ground_truth)
@@ -218,6 +214,7 @@ def train_gnn(tr_data, val_data, te_data, tr_inds, val_inds, te_inds, args,
               data_config):
     #set device
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    logging.info(f"Using device: {device}")
 
     #define a model config dictionary and wandb logging at the same time
     wandb.init(
