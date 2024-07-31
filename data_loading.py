@@ -13,7 +13,8 @@ def get_data(args, data_config):
     3. PyG Data objects are created with the respective data splits.
     '''
 
-    transaction_file = f"{data_config['paths']['aml_data']}/{args.data}/formatted_transactions.csv" #replace this with your path to the respective AML data objects
+    # transaction_file = f"{data_config['paths']['aml_data']}/{args.data}/formatted_transactions.csv" #replace this with your path to the respective AML data objects
+    transaction_file = args.data #replace this with your path to the respective AML data objects
     df_edges = pd.read_csv(transaction_file)
 
     logging.info(f'Available Edge Features: {df_edges.columns.tolist()}')
@@ -86,11 +87,11 @@ def get_data(args, data_config):
     te_inds = torch.cat(split_inds[2])
 
     logging.info(f"Total train samples: {tr_inds.shape[0] / y.shape[0] * 100 :.2f}% || IR: "
-            f"{y[tr_inds].float().mean() * 100 :.2f}% || Train days: {split[0][:5]}")
+            f"{y[tr_inds].float().mean() * 100 :.2f}% || Train days: {split[0]}")
     logging.info(f"Total val samples: {val_inds.shape[0] / y.shape[0] * 100 :.2f}% || IR: "
-        f"{y[val_inds].float().mean() * 100:.2f}% || Val days: {split[1][:5]}")
+        f"{y[val_inds].float().mean() * 100:.2f}% || Val days: {split[1]}")
     logging.info(f"Total test samples: {te_inds.shape[0] / y.shape[0] * 100 :.2f}% || IR: "
-        f"{y[te_inds].float().mean() * 100:.2f}% || Test days: {split[2][:5]}")
+        f"{y[te_inds].float().mean() * 100:.2f}% || Test days: {split[2]}")
     
     #Creating the final data objects
     tr_x, val_x, te_x = x, x, x
@@ -136,6 +137,7 @@ def get_data(args, data_config):
     logging.info(f'train data object: {tr_data}')
     logging.info(f'validation data object: {val_data}')
     logging.info(f'test data object: {te_data}')
+
 
     return tr_data, val_data, te_data, tr_inds, val_inds, te_inds
     
