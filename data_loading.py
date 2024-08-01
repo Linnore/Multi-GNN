@@ -62,7 +62,7 @@ def get_data(args, data_config):
         y = torch.LongTensor(df_edges['Is Laundering'].to_numpy())
 
         logging.info(
-            f"Illicit ratio = {sum(y)} / {len(y)} = {sum(y) / len(y) * 100:.2f}%"
+            f"Illicit ratio = {y.sum()} / {len(y)} = {y.sum() / len(y) * 100:.2f}%"
         )
         logging.info(
             f"Number of nodes (holdings doing transcations) = {df_nodes.shape[0]}"
