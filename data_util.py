@@ -9,8 +9,8 @@ def to_adj_nodes_with_times(data):
     edges = torch.cat((data.edge_index.T, timestamps), dim=1) if not isinstance(data, HeteroData) else torch.cat((data['node', 'to', 'node'].edge_index.T, timestamps), dim=1)
     adj_list_out = dict([(i, []) for i in range(num_nodes)])
     adj_list_in = dict([(i, []) for i in range(num_nodes)])
-    for u,v,t in edges:
-        u,v,t = int(u), int(v), int(t)
+    for i in range(data.num_edges):
+        u, v, t = edges[i].numpy()
         adj_list_out[u] += [(v, t)]
         adj_list_in[v] += [(u, t)]
     return adj_list_in, adj_list_out
@@ -22,8 +22,8 @@ def to_adj_edges_with_times(data):
     # calculate adjacent edges with times per node
     adj_edges_out = dict([(i, []) for i in range(num_nodes)])
     adj_edges_in = dict([(i, []) for i in range(num_nodes)])
-    for i, (u,v,t) in enumerate(edges):
-        u,v,t = int(u), int(v), int(t)
+    for i in range(data.num_edges):
+        u, v, t = edges[i].numpy()
         adj_edges_out[u] += [(i, v, t)]
         adj_edges_in[v] += [(i, u, t)]
     return adj_edges_in, adj_edges_out
@@ -39,8 +39,9 @@ def ports(edge_index, adj_list):
         nbs_unique = a[np.sort(idx)][:,0]
         for i, u in enumerate(nbs_unique):
             ports_dict[(u,v)] = i
-    for i, e in enumerate(edge_index.T):
-        ports[i] = ports_dict[tuple(e.numpy())]
+    edges = edge_index.T
+    for i in range(edges.shape[0]):
+        ports[i] = ports_dict[tuple(edges[i].numpy())]
     return ports
 
 def time_deltas(data, adj_edges_list):
