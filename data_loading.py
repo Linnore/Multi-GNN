@@ -158,89 +158,149 @@ def get_data(args, data_config):
             f"{y[te_inds].float().mean() * 100:.2f}% || Test days: {split[2]}")
 
         #Creating the final data objects
-        tr_x, val_x, te_x = x, x, x
+        logging.info("Creating tr_data.")
+        tr_x = x
         e_tr = tr_inds.numpy()
-        e_val = np.concatenate([tr_inds, val_inds])
-
         tr_edge_index, tr_edge_attr, tr_y, tr_edge_times = edge_index[:, e_tr], edge_attr[
             e_tr], y[e_tr], timestamps[e_tr]
-        val_edge_index, val_edge_attr, val_y, val_edge_times = edge_index[:, e_val], edge_attr[
-            e_val], y[e_val], timestamps[e_val]
-        te_edge_index, te_edge_attr, te_y, te_edge_times = edge_index, edge_attr, y, timestamps
-
         tr_data = GraphData(x=tr_x,
                             y=tr_y,
                             edge_index=tr_edge_index,
                             edge_attr=tr_edge_attr,
                             timestamps=tr_edge_times)
+        logging.info("Adding ports for tr_data.")
+        tr_data.add_ports()
+        tr_data.x = z_norm(tr_data.x)
+        tr_data.edge_attr = z_norm(tr_data.edge_attr)
+        logging.info("Converting tr_data to Hetero.")
+        tr_data = create_hetero_obj(tr_data.x, tr_data.y,
+                                        tr_data.edge_index, tr_data.edge_attr,
+                                        tr_data.timestamps, args)
+        logging.info(f'train data object: {tr_data}')
+        torch.save(tr_data, file_path["train"])
+        torch.save(tr_inds, file_path["train_inds"])
+        
+        logging.info("Creating val_data.")
+        val_x = x
+        e_val = np.concatenate([tr_inds, val_inds])
+        val_edge_index, val_edge_attr, val_y, val_edge_times = edge_index[:, e_val], edge_attr[
+            e_val], y[e_val], timestamps[e_val]
         val_data = GraphData(x=val_x,
-                             y=val_y,
-                             edge_index=val_edge_index,
-                             edge_attr=val_edge_attr,
-                             timestamps=val_edge_times)
+                            y=val_y,
+                            edge_index=val_edge_index,
+                            edge_attr=val_edge_attr,
+                            timestamps=val_edge_times)
+        logging.info("Adding ports for val_data.")
+        val_data.add_ports()
+        val_data.x = z_norm(val_data.x)
+        val_data.edge_attr = z_norm(val_data.edge_attr)
+        logging.info("Converting val_data to Hetero.")
+        val_data = create_hetero_obj(val_data.x, val_data.y,
+                                        val_data.edge_index, val_data.edge_attr,
+                                        val_data.timestamps, args)
+        logging.info(f'val data object: {val_data}')
+        torch.save(val_data, file_path["val"])
+        torch.save(val_inds, file_path["val_inds"])
+        
+        logging.info("Creating te_data.")
+        te_x = x
+        te_edge_index, te_edge_attr, te_y, te_edge_times = edge_index, edge_attr, y, timestamps
         te_data = GraphData(x=te_x,
                             y=te_y,
                             edge_index=te_edge_index,
                             edge_attr=te_edge_attr,
                             timestamps=te_edge_times)
-
-        #Adding ports and time-deltas if applicable
-        if args.ports:
-            logging.info(f"Start: adding ports")
-            tr_data.add_ports()
-            val_data.add_ports()
-            te_data.add_ports()
-            logging.info(f"Done: adding ports")
-        if args.tds:
-            logging.info(f"Start: adding time-deltas")
-            tr_data.add_time_deltas()
-            val_data.add_time_deltas()
-            te_data.add_time_deltas()
-            logging.info(f"Done: adding time-deltas")
-
-        #Normalize data
-        tr_data.x = val_data.x = te_data.x = z_norm(tr_data.x)
-        if not args.model == 'rgcn':
-            tr_data.edge_attr, val_data.edge_attr, te_data.edge_attr = z_norm(
-                tr_data.edge_attr), z_norm(val_data.edge_attr), z_norm(
-                    te_data.edge_attr)
-        else:
-            tr_data.edge_attr[:, :
-                              -1], val_data.edge_attr[:, :
-                                                      -1], te_data.edge_attr[:, :-1] = z_norm(
-                                                          tr_data.
-                                                          edge_attr[:, :-1]
-                                                      ), z_norm(
-                                                          val_data.
-                                                          edge_attr[:, :-1]
-                                                      ), z_norm(
-                                                          te_data.
-                                                          edge_attr[:, :-1])
-
-        #Create heterogenous if reverese MP is enabled
-        #TODO: if I observe wierd behaviour, maybe add .detach.clone() to all torch tensors, but I don't think they're attached to any computation graph just yet
-        if args.reverse_mp:
-            tr_data = create_hetero_obj(tr_data.x, tr_data.y,
-                                        tr_data.edge_index, tr_data.edge_attr,
-                                        tr_data.timestamps, args)
-            val_data = create_hetero_obj(val_data.x, val_data.y,
-                                         val_data.edge_index,
-                                         val_data.edge_attr,
-                                         val_data.timestamps, args)
-            te_data = create_hetero_obj(te_data.x, te_data.y,
+        logging.info("Adding ports for te_data.")
+        te_data.add_ports()
+        te_data.x = z_norm(te_data.x)
+        te_data.edge_attr = z_norm(te_data.edge_attr)
+        logging.info("Converting te_data to Hetero.")
+        te_data = create_hetero_obj(te_data.x, te_data.y,
                                         te_data.edge_index, te_data.edge_attr,
                                         te_data.timestamps, args)
-
-        logging.info(f'train data object: {tr_data}')
-        logging.info(f'validation data object: {val_data}')
         logging.info(f'test data object: {te_data}')
-
-        file_path = get_processed_path(args)
-        torch.save(tr_data, file_path["train"])
-        torch.save(val_data, file_path["val"])
         torch.save(te_data, file_path["test"])
-        torch.save(tr_inds, file_path["train_inds"])
-        torch.save(val_inds, file_path["val_inds"])
         torch.save(te_inds, file_path["test_inds"])
+        
+        
+        
+        
+        # tr_x, val_x, te_x = x, x, x
+        # e_tr = tr_inds.numpy()
+        # e_val = np.concatenate([tr_inds, val_inds])
+
+        # val_edge_index, val_edge_attr, val_y, val_edge_times = edge_index[:, e_val], edge_attr[
+        #     e_val], y[e_val], timestamps[e_val]
+        # te_edge_index, te_edge_attr, te_y, te_edge_times = edge_index, edge_attr, y, timestamps
+
+        # val_data = GraphData(x=val_x,
+        #                      y=val_y,
+        #                      edge_index=val_edge_index,
+        #                      edge_attr=val_edge_attr,
+        #                      timestamps=val_edge_times)
+        # te_data = GraphData(x=te_x,
+        #                     y=te_y,
+        #                     edge_index=te_edge_index,
+        #                     edge_attr=te_edge_attr,
+        #                     timestamps=te_edge_times)
+
+        # #Adding ports and time-deltas if applicable
+        # if args.ports:
+        #     logging.info(f"Start: adding ports")
+        #     tr_data.add_ports()
+        #     val_data.add_ports()
+        #     te_data.add_ports()
+        #     logging.info(f"Done: adding ports")
+        # if args.tds:
+        #     logging.info(f"Start: adding time-deltas")
+        #     tr_data.add_time_deltas()
+        #     val_data.add_time_deltas()
+        #     te_data.add_time_deltas()
+        #     logging.info(f"Done: adding time-deltas")
+
+        # #Normalize data
+        # tr_data.x = val_data.x = te_data.x = z_norm(tr_data.x)
+        # if not args.model == 'rgcn':
+        #     tr_data.edge_attr, val_data.edge_attr, te_data.edge_attr = z_norm(
+        #         tr_data.edge_attr), z_norm(val_data.edge_attr), z_norm(
+        #             te_data.edge_attr)
+        # else:
+        #     tr_data.edge_attr[:, :
+        #                       -1], val_data.edge_attr[:, :
+        #                                               -1], te_data.edge_attr[:, :-1] = z_norm(
+        #                                                   tr_data.
+        #                                                   edge_attr[:, :-1]
+        #                                               ), z_norm(
+        #                                                   val_data.
+        #                                                   edge_attr[:, :-1]
+        #                                               ), z_norm(
+        #                                                   te_data.
+        #                                                   edge_attr[:, :-1])
+
+        # #Create heterogenous if reverese MP is enabled
+        # #TODO: if I observe wierd behaviour, maybe add .detach.clone() to all torch tensors, but I don't think they're attached to any computation graph just yet
+        # if args.reverse_mp:
+        #     tr_data = create_hetero_obj(tr_data.x, tr_data.y,
+        #                                 tr_data.edge_index, tr_data.edge_attr,
+        #                                 tr_data.timestamps, args)
+        #     val_data = create_hetero_obj(val_data.x, val_data.y,
+        #                                  val_data.edge_index,
+        #                                  val_data.edge_attr,
+        #                                  val_data.timestamps, args)
+        #     te_data = create_hetero_obj(te_data.x, te_data.y,
+        #                                 te_data.edge_index, te_data.edge_attr,
+        #                                 te_data.timestamps, args)
+
+        # logging.info(f'train data object: {tr_data}')
+        # logging.info(f'validation data object: {val_data}')
+        # logging.info(f'test data object: {te_data}')
+
+        # file_path = get_processed_path(args)
+        # torch.save(tr_data, file_path["train"])
+        # torch.save(val_data, file_path["val"])
+        # torch.save(te_data, file_path["test"])
+        # torch.save(tr_inds, file_path["train_inds"])
+        # torch.save(val_inds, file_path["val_inds"])
+        # torch.save(te_inds, file_path["test_inds"])
 
         return tr_data, val_data, te_data, tr_inds, val_inds, te_inds
