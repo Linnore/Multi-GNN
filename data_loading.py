@@ -191,10 +191,6 @@ def get_data(args, data_config):
         tr_data.add_ports()
         tr_data.x = z_norm(tr_data.x)
         tr_data.edge_attr = z_norm(tr_data.edge_attr)
-        logging.info("Converting tr_data to Hetero.")
-        tr_data = create_hetero_obj(tr_data.x, tr_data.y,
-                                        tr_data.edge_index, tr_data.edge_attr,
-                                        tr_data.timestamps, args)
         logging.info(f'train data object: {tr_data}')
         torch.save(tr_data, file_path["train"])
         torch.save(tr_inds, file_path["train_inds"])
@@ -214,10 +210,6 @@ def get_data(args, data_config):
         val_data.add_ports()
         val_data.x = z_norm(val_data.x)
         val_data.edge_attr = z_norm(val_data.edge_attr)
-        logging.info("Converting val_data to Hetero.")
-        val_data = create_hetero_obj(val_data.x, val_data.y,
-                                        val_data.edge_index, val_data.edge_attr,
-                                        val_data.timestamps, args)
         logging.info(f'val data object: {val_data}')
         torch.save(val_data, file_path["val"])
         torch.save(val_inds, file_path["val_inds"])
@@ -236,10 +228,6 @@ def get_data(args, data_config):
         te_data.add_ports()
         te_data.x = z_norm(te_data.x)
         te_data.edge_attr = z_norm(te_data.edge_attr)
-        logging.info("Converting te_data to Hetero.")
-        te_data = create_hetero_obj(te_data.x, te_data.y,
-                                        te_data.edge_index, te_data.edge_attr,
-                                        te_data.timestamps, args)
         logging.info(f'test data object: {te_data}')
         torch.save(te_data, file_path["test"])
         torch.save(te_inds, file_path["test_inds"])
@@ -255,13 +243,16 @@ def get_data(args, data_config):
         te_inds = torch.load(file_path["test_inds"])
         
         if args.reverse_mp:
+            logging.info("Converting tr_data to Hetero")
             tr_data = create_hetero_obj(tr_data.x, tr_data.y,
                                         tr_data.edge_index, tr_data.edge_attr,
                                         tr_data.timestamps, args)
+            logging.info("Converting val_data to Hetero")
             val_data = create_hetero_obj(val_data.x, val_data.y,
                                          val_data.edge_index,
                                          val_data.edge_attr,
                                          val_data.timestamps, args)
+            logging.info("Converting te_data to Hetero")
             te_data = create_hetero_obj(te_data.x, te_data.y,
                                         te_data.edge_index, te_data.edge_attr,
                                         te_data.timestamps, args)
