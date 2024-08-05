@@ -25,7 +25,7 @@ def get_processed_path(args):
     return file_path
 
 
-def get_data(args, data_config):
+def get_data(args):
     '''Loads the AML transaction data.
     
     1. The data is loaded from the csv and the necessary features are chosen.
@@ -42,7 +42,21 @@ def get_data(args, data_config):
         tr_inds = torch.load(file_path["train_inds"])
         val_inds = torch.load(file_path["val_inds"])
         te_inds = torch.load(file_path["test_inds"])
+        
+        if args.reverse_mp:
+            tr_data = create_hetero_obj(tr_data.x, tr_data.y,
+                                        tr_data.edge_index, tr_data.edge_attr,
+                                        tr_data.timestamps, args)
+            val_data = create_hetero_obj(val_data.x, val_data.y,
+                                         val_data.edge_index,
+                                         val_data.edge_attr,
+                                         val_data.timestamps, args)
+            te_data = create_hetero_obj(te_data.x, te_data.y,
+                                        te_data.edge_index, te_data.edge_attr,
+                                        te_data.timestamps, args)
+                                        
         return tr_data, val_data, te_data, tr_inds, val_inds, te_inds
+        
     else:
         # transaction_file = f"{data_config['paths']['aml_data']}/{args.data}/formatted_transactions.csv" #replace this with your path to the respective AML data objects
         transaction_file = args.data  #replace this with your path to the respective AML data objects
@@ -85,6 +99,8 @@ def get_data(args, data_config):
             df_edges.loc[:, ['from_id', 'to_id']].to_numpy().T)
         edge_attr = torch.tensor(
             df_edges.loc[:, edge_features].to_numpy()).float()
+
+        del df_edges, df_nodes
 
         n_days = int(timestamps.max() / (3600 * 24) + 1)
         n_samples = y.shape[0]
@@ -146,6 +162,9 @@ def get_data(args, data_config):
         val_inds = torch.cat(split_inds[1])
         te_inds = torch.cat(split_inds[2])
 
+        del split_inds, split_scores, split_props, split_error, I, d_ts, split_totals
+        del daily_inds, daily_irs, daily_totals, daily_trans
+        
         logging.info(
             f"Total train samples: {tr_inds.shape[0] / y.shape[0] * 100 :.2f}% || IR: "
             f"{y[tr_inds].float().mean() * 100 :.2f}% || Train days: {split[0]}"
@@ -179,6 +198,7 @@ def get_data(args, data_config):
         logging.info(f'train data object: {tr_data}')
         torch.save(tr_data, file_path["train"])
         torch.save(tr_inds, file_path["train_inds"])
+        del tr_data, tr_edge_index, tr_edge_attr, tr_edge_times, tr_x, tr_y, e_tr
         
         logging.info("Creating val_data.")
         val_x = x
@@ -201,6 +221,8 @@ def get_data(args, data_config):
         logging.info(f'val data object: {val_data}')
         torch.save(val_data, file_path["val"])
         torch.save(val_inds, file_path["val_inds"])
+        del val_data, val_inds, val_edge_index, val_edge_attr, val_edge_times, val_x, val_y, e_val
+        del tr_inds
         
         logging.info("Creating te_data.")
         te_x = x
@@ -221,86 +243,27 @@ def get_data(args, data_config):
         logging.info(f'test data object: {te_data}')
         torch.save(te_data, file_path["test"])
         torch.save(te_inds, file_path["test_inds"])
+        del te_data, te_inds, te_edge_index, te_edge_attr, te_edge_times, te_x, te_y
         
+        del edge_attr, edge_index, timestamps, x, y
+
+        tr_data = torch.load(file_path["train"])
+        val_data = torch.load(file_path["val"])
+        te_data = torch.load(file_path["test"])
+        tr_inds = torch.load(file_path["train_inds"])
+        val_inds = torch.load(file_path["val_inds"])
+        te_inds = torch.load(file_path["test_inds"])
         
+        if args.reverse_mp:
+            tr_data = create_hetero_obj(tr_data.x, tr_data.y,
+                                        tr_data.edge_index, tr_data.edge_attr,
+                                        tr_data.timestamps, args)
+            val_data = create_hetero_obj(val_data.x, val_data.y,
+                                         val_data.edge_index,
+                                         val_data.edge_attr,
+                                         val_data.timestamps, args)
+            te_data = create_hetero_obj(te_data.x, te_data.y,
+                                        te_data.edge_index, te_data.edge_attr,
+                                        te_data.timestamps, args)
         
-        
-        # tr_x, val_x, te_x = x, x, x
-        # e_tr = tr_inds.numpy()
-        # e_val = np.concatenate([tr_inds, val_inds])
-
-        # val_edge_index, val_edge_attr, val_y, val_edge_times = edge_index[:, e_val], edge_attr[
-        #     e_val], y[e_val], timestamps[e_val]
-        # te_edge_index, te_edge_attr, te_y, te_edge_times = edge_index, edge_attr, y, timestamps
-
-        # val_data = GraphData(x=val_x,
-        #                      y=val_y,
-        #                      edge_index=val_edge_index,
-        #                      edge_attr=val_edge_attr,
-        #                      timestamps=val_edge_times)
-        # te_data = GraphData(x=te_x,
-        #                     y=te_y,
-        #                     edge_index=te_edge_index,
-        #                     edge_attr=te_edge_attr,
-        #                     timestamps=te_edge_times)
-
-        # #Adding ports and time-deltas if applicable
-        # if args.ports:
-        #     logging.info(f"Start: adding ports")
-        #     tr_data.add_ports()
-        #     val_data.add_ports()
-        #     te_data.add_ports()
-        #     logging.info(f"Done: adding ports")
-        # if args.tds:
-        #     logging.info(f"Start: adding time-deltas")
-        #     tr_data.add_time_deltas()
-        #     val_data.add_time_deltas()
-        #     te_data.add_time_deltas()
-        #     logging.info(f"Done: adding time-deltas")
-
-        # #Normalize data
-        # tr_data.x = val_data.x = te_data.x = z_norm(tr_data.x)
-        # if not args.model == 'rgcn':
-        #     tr_data.edge_attr, val_data.edge_attr, te_data.edge_attr = z_norm(
-        #         tr_data.edge_attr), z_norm(val_data.edge_attr), z_norm(
-        #             te_data.edge_attr)
-        # else:
-        #     tr_data.edge_attr[:, :
-        #                       -1], val_data.edge_attr[:, :
-        #                                               -1], te_data.edge_attr[:, :-1] = z_norm(
-        #                                                   tr_data.
-        #                                                   edge_attr[:, :-1]
-        #                                               ), z_norm(
-        #                                                   val_data.
-        #                                                   edge_attr[:, :-1]
-        #                                               ), z_norm(
-        #                                                   te_data.
-        #                                                   edge_attr[:, :-1])
-
-        # #Create heterogenous if reverese MP is enabled
-        # #TODO: if I observe wierd behaviour, maybe add .detach.clone() to all torch tensors, but I don't think they're attached to any computation graph just yet
-        # if args.reverse_mp:
-        #     tr_data = create_hetero_obj(tr_data.x, tr_data.y,
-        #                                 tr_data.edge_index, tr_data.edge_attr,
-        #                                 tr_data.timestamps, args)
-        #     val_data = create_hetero_obj(val_data.x, val_data.y,
-        #                                  val_data.edge_index,
-        #                                  val_data.edge_attr,
-        #                                  val_data.timestamps, args)
-        #     te_data = create_hetero_obj(te_data.x, te_data.y,
-        #                                 te_data.edge_index, te_data.edge_attr,
-        #                                 te_data.timestamps, args)
-
-        # logging.info(f'train data object: {tr_data}')
-        # logging.info(f'validation data object: {val_data}')
-        # logging.info(f'test data object: {te_data}')
-
-        # file_path = get_processed_path(args)
-        # torch.save(tr_data, file_path["train"])
-        # torch.save(val_data, file_path["val"])
-        # torch.save(te_data, file_path["test"])
-        # torch.save(tr_inds, file_path["train_inds"])
-        # torch.save(val_inds, file_path["val_inds"])
-        # torch.save(te_inds, file_path["test_inds"])
-
         return tr_data, val_data, te_data, tr_inds, val_inds, te_inds
