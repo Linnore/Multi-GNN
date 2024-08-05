@@ -27,7 +27,7 @@ def main():
     logging.info("Retrieving data")
     t1 = time.perf_counter()
 
-    if args.ibm_data_lording:
+    if args.ibm_data_loading:
         tr_data, val_data, te_data, tr_inds, val_inds, te_inds = get_data(args, data_config)
     else:
         tr_data, val_data, te_data, tr_inds, val_inds, te_inds = data_loading_aml(args)

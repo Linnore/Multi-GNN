@@ -382,64 +382,65 @@ class AMLworld(InMemoryDataset):
 
         formatted_trans_file = os.path.join(
             self.processed_dir, self.opt + "-formatted_transactions.csv")
+        if not os.path.exists(formatted_trans_file) or self.force_reload:
 
-        raw_trans_file = os.path.join(self.raw_dir, self.opt + "_Trans.csv")
-        raw = datatable.fread(raw_trans_file, columns=datatable.str32)
+            raw_trans_file = os.path.join(self.raw_dir, self.opt + "_Trans.csv")
+            raw = datatable.fread(raw_trans_file, columns=datatable.str32)
 
-        header = "EdgeID,from_id,to_id,Timestamp,Amount Sent," + \
-            "Sent Currency,Amount Received,Received Currency," + \
-            "Payment Format,Is Laundering\n"
+            header = "EdgeID,from_id,to_id,Timestamp,Amount Sent," + \
+                "Sent Currency,Amount Received,Received Currency," + \
+                "Payment Format,Is Laundering\n"
 
-        firstTs = -1
-        currency = dict()
-        paymentFormat = dict()
-        account = dict()
+            firstTs = -1
+            currency = dict()
+            paymentFormat = dict()
+            account = dict()
 
-        with open(formatted_trans_file, "w") as writer:
-            writer.write(header)
-            for i in tqdm(range(raw.nrows),
-                          desc="Formatting files from Kaggle raw data:",
-                          disable=not self.verbose):
-                datetime_object = datetime.strptime(raw[i, "Timestamp"],
-                                                    '%Y/%m/%d %H:%M')
-                ts = datetime_object.timestamp()
-                day = datetime_object.day
-                month = datetime_object.month
-                year = datetime_object.year
+            with open(formatted_trans_file, "w") as writer:
+                writer.write(header)
+                for i in tqdm(range(raw.nrows),
+                            desc="Formatting files from Kaggle raw data:",
+                            disable=not self.verbose):
+                    datetime_object = datetime.strptime(raw[i, "Timestamp"],
+                                                        '%Y/%m/%d %H:%M')
+                    ts = datetime_object.timestamp()
+                    day = datetime_object.day
+                    month = datetime_object.month
+                    year = datetime_object.year
 
-                if firstTs == -1:
-                    startTime = datetime(year, month, day)
-                    firstTs = startTime.timestamp() - 10
+                    if firstTs == -1:
+                        startTime = datetime(year, month, day)
+                        firstTs = startTime.timestamp() - 10
 
-                ts = ts - firstTs
+                    ts = ts - firstTs
 
-                cur1 = get_dict_val(raw[i, "Receiving Currency"], currency)
-                cur2 = get_dict_val(raw[i, "Payment Currency"], currency)
+                    cur1 = get_dict_val(raw[i, "Receiving Currency"], currency)
+                    cur2 = get_dict_val(raw[i, "Payment Currency"], currency)
 
-                fmt = get_dict_val(raw[i, "Payment Format"], paymentFormat)
+                    fmt = get_dict_val(raw[i, "Payment Format"], paymentFormat)
 
-                fromAccIdStr = raw[i, "From Bank"] + raw[i, 2]
-                fromId = get_dict_val(fromAccIdStr, account)
+                    fromAccIdStr = raw[i, "From Bank"] + raw[i, 2]
+                    fromId = get_dict_val(fromAccIdStr, account)
 
-                toAccIdStr = raw[i, "To Bank"] + raw[i, 4]
-                toId = get_dict_val(toAccIdStr, account)
+                    toAccIdStr = raw[i, "To Bank"] + raw[i, 4]
+                    toId = get_dict_val(toAccIdStr, account)
 
-                amountReceivedOrig = float(raw[i, "Amount Received"])
-                amountPaidOrig = float(raw[i, "Amount Paid"])
+                    amountReceivedOrig = float(raw[i, "Amount Received"])
+                    amountPaidOrig = float(raw[i, "Amount Paid"])
 
-                isl = int(raw[i, "Is Laundering"])
+                    isl = int(raw[i, "Is Laundering"])
 
-                line = '%d,%d,%d,%d,%f,%d,%f,%d,%d,%d\n' % \
-                    (i, fromId, toId, ts, amountPaidOrig,
-                     cur2, amountReceivedOrig, cur1, fmt, isl)
+                    line = '%d,%d,%d,%d,%f,%d,%f,%d,%d,%d\n' % \
+                        (i, fromId, toId, ts, amountPaidOrig,
+                        cur2, amountReceivedOrig, cur1, fmt, isl)
 
-                writer.write(line)
+                    writer.write(line)
 
-        formatted = datatable.fread(formatted_trans_file)
-        formatted = formatted[:, :, datatable.sort(3)]
-        formatted.to_csv(formatted_trans_file)
-        del formatted
-        del raw
+            formatted = datatable.fread(formatted_trans_file)
+            formatted = formatted[:, :, datatable.sort(3)]
+            formatted.to_csv(formatted_trans_file)
+            del formatted
+            del raw
 
         ################################################################
         # Step 2. Load datatable as a PyG data object. Adopt codes from
