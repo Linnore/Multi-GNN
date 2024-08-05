@@ -6,13 +6,13 @@ from data_util import create_hetero_obj
 def data_loading_aml(args):
     if args.root is None:
         raise ValueError
-    tr_data = AMLworld(args.root, split="train", verbose=False)
+    tr_data = AMLworld(args.root, opt=args.opt, split="train", verbose=False)
     tr_data = tr_data[0]
     tr_inds = tr_data.tr_inds
-    val_data = AMLworld(args.root, split="val", verbose=False)
+    val_data = AMLworld(args.root, opt=args.opt, split="val", verbose=False)
     val_data = val_data[0]
     val_inds = val_data.val_inds
-    te_data = AMLworld(args.root, split="test", verbose=False)
+    te_data = AMLworld(args.root, opt=args.opt, split="test", verbose=False)
     te_data = te_data[0]
     te_inds = te_data.te_inds
 
