@@ -61,9 +61,8 @@ class GINe(torch.nn.Module):
             x = (
                 x + F.relu(self.batch_norms[i](self.convs[i](x, edge_index, edge_attr)))) / 2
             if self.edge_updates:
-                edge_attr = edge_attr + \
-                    self.emlps[i](
-                        torch.cat([x[src], x[dst], edge_attr], dim=-1)) / 2
+                edge_attr = (
+                    edge_attr + F.relu(self.emlps[i](torch.cat([x[src], x[dst], edge_attr], dim=-1)))) / 2
 
         x = x[edge_index.T].reshape(-1, 2 * self.n_hidden).relu()
         x = torch.cat((x, edge_attr.view(-1, edge_attr.shape[1])), 1)
@@ -114,7 +113,8 @@ class GATe(torch.nn.Module):
             Linear(25, n_classes))
 
     def forward(self, x, edge_index, edge_attr):
-        src, dst = edge_index
+        src = edge_index[0]
+        dst = edge_index[1]
 
         x = self.node_emb(x)
         edge_attr = self.edge_emb(edge_attr)
@@ -123,9 +123,8 @@ class GATe(torch.nn.Module):
             x = (
                 x + F.relu(self.batch_norms[i](self.convs[i](x, edge_index, edge_attr)))) / 2
             if self.edge_updates:
-                edge_attr = edge_attr + \
-                    self.emlps[i](
-                        torch.cat([x[src], x[dst], edge_attr], dim=-1)) / 2
+                edge_attr = (
+                    edge_attr + F.relu(self.emlps[i](torch.cat([x[src], x[dst], edge_attr], dim=-1)))) / 2
 
         logging.debug(
             f"x.shape = {x.shape}, x[edge_index.T].shape = {x[edge_index.T].shape}")
@@ -185,9 +184,8 @@ class PNA(torch.nn.Module):
             x = (
                 x + F.relu(self.batch_norms[i](self.convs[i](x, edge_index, edge_attr)))) / 2
             if self.edge_updates:
-                edge_attr = edge_attr + \
-                    self.emlps[i](
-                        torch.cat([x[src], x[dst], edge_attr], dim=-1)) / 2
+                edge_attr = (
+                    edge_attr + F.relu(self.emlps[i](torch.cat([x[src], x[dst], edge_attr], dim=-1)))) / 2
 
         logging.debug(
             f"x.shape = {x.shape}, x[edge_index.T].shape = {x[edge_index.T].shape}")
