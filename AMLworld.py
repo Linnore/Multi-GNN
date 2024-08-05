@@ -10,7 +10,6 @@ import pandas as pd
 from typing import Literal
 from datetime import datetime
 from tqdm import tqdm
-from data_util import GraphData, HeteroData, z_norm, create_hetero_obj
 
 from torch_geometric.data import InMemoryDataset, Data
 from torch_geometric.typing import OptTensor
@@ -179,10 +178,10 @@ class AddEgoIds_for_NeighborLoader(BaseTransform):
 
 
 def z_norm(data):
-    std = data.std(0)
+    std = data.std(0).unsqueeze(0)
     std = torch.where(std == 0,
                       torch.tensor(1, dtype=torch.float32).cpu(), std)
-    return (data - data.mean(0)) / std
+    return (data - data.mean(0).unsqueeze(0)) / std
 
 
 class AMLworld(InMemoryDataset):
@@ -201,7 +200,6 @@ class AMLworld(InMemoryDataset):
                  force_download=False,
                  verbose=True,
                  ibm_split=True,
-                 a=None,
                  *args,
                  **kwargs):
         """
@@ -213,7 +211,7 @@ class AMLworld(InMemoryDataset):
         self.verbose = verbose
         self.processed_in_this_call = False
         self.ibm_split = ibm_split
-        self.a = a
+
         if not verbose:
             os.environ["TQDM_DISABLE"] = "1"
         else:
@@ -268,7 +266,7 @@ class AMLworld(InMemoryDataset):
             self.logger.info(f'Edge features being used: {edge_features}')
             del self._data.information
 
-        # Select the labels to returen
+        # Select the labels to return
         self._data.readout = readout
         if readout == "edge":
             del self._data.x_label
@@ -322,10 +320,7 @@ class AMLworld(InMemoryDataset):
         file_dict = {
             "train": f"{self.opt}-train.pt",
             "val": f"{self.opt}-val.pt",
-            "test": f"{self.opt}-test.pt",
-            "train_inds": f"{self.opt}-train.pt",
-            "val_inds": f"{self.opt}-val.pt",
-            "test_inds": f"{self.opt}-test.pt"
+            "test": f"{self.opt}-test.pt"
         }
         if self.ibm_split:
             for split, file in file_dict.items():
@@ -382,65 +377,64 @@ class AMLworld(InMemoryDataset):
 
         formatted_trans_file = os.path.join(
             self.processed_dir, self.opt + "-formatted_transactions.csv")
-        if not os.path.exists(formatted_trans_file) or self.force_reload:
 
-            raw_trans_file = os.path.join(self.raw_dir, self.opt + "_Trans.csv")
-            raw = datatable.fread(raw_trans_file, columns=datatable.str32)
+        raw_trans_file = os.path.join(self.raw_dir, self.opt + "_Trans.csv")
+        raw = datatable.fread(raw_trans_file, columns=datatable.str32)
 
-            header = "EdgeID,from_id,to_id,Timestamp,Amount Sent," + \
-                "Sent Currency,Amount Received,Received Currency," + \
-                "Payment Format,Is Laundering\n"
+        header = "EdgeID,from_id,to_id,Timestamp,Amount Sent," + \
+            "Sent Currency,Amount Received,Received Currency," + \
+            "Payment Format,Is Laundering\n"
 
-            firstTs = -1
-            currency = dict()
-            paymentFormat = dict()
-            account = dict()
+        firstTs = -1
+        currency = dict()
+        paymentFormat = dict()
+        account = dict()
 
-            with open(formatted_trans_file, "w") as writer:
-                writer.write(header)
-                for i in tqdm(range(raw.nrows),
-                            desc="Formatting files from Kaggle raw data:",
-                            disable=not self.verbose):
-                    datetime_object = datetime.strptime(raw[i, "Timestamp"],
-                                                        '%Y/%m/%d %H:%M')
-                    ts = datetime_object.timestamp()
-                    day = datetime_object.day
-                    month = datetime_object.month
-                    year = datetime_object.year
+        with open(formatted_trans_file, "w") as writer:
+            writer.write(header)
+            for i in tqdm(range(raw.nrows),
+                          desc="Formatting files from Kaggle raw data:",
+                          disable=not self.verbose):
+                datetime_object = datetime.strptime(raw[i, "Timestamp"],
+                                                    '%Y/%m/%d %H:%M')
+                ts = datetime_object.timestamp()
+                day = datetime_object.day
+                month = datetime_object.month
+                year = datetime_object.year
 
-                    if firstTs == -1:
-                        startTime = datetime(year, month, day)
-                        firstTs = startTime.timestamp() - 10
+                if firstTs == -1:
+                    startTime = datetime(year, month, day)
+                    firstTs = startTime.timestamp() - 10
 
-                    ts = ts - firstTs
+                ts = ts - firstTs
 
-                    cur1 = get_dict_val(raw[i, "Receiving Currency"], currency)
-                    cur2 = get_dict_val(raw[i, "Payment Currency"], currency)
+                cur1 = get_dict_val(raw[i, "Receiving Currency"], currency)
+                cur2 = get_dict_val(raw[i, "Payment Currency"], currency)
 
-                    fmt = get_dict_val(raw[i, "Payment Format"], paymentFormat)
+                fmt = get_dict_val(raw[i, "Payment Format"], paymentFormat)
 
-                    fromAccIdStr = raw[i, "From Bank"] + raw[i, 2]
-                    fromId = get_dict_val(fromAccIdStr, account)
+                fromAccIdStr = raw[i, "From Bank"] + raw[i, 2]
+                fromId = get_dict_val(fromAccIdStr, account)
 
-                    toAccIdStr = raw[i, "To Bank"] + raw[i, 4]
-                    toId = get_dict_val(toAccIdStr, account)
+                toAccIdStr = raw[i, "To Bank"] + raw[i, 4]
+                toId = get_dict_val(toAccIdStr, account)
 
-                    amountReceivedOrig = float(raw[i, "Amount Received"])
-                    amountPaidOrig = float(raw[i, "Amount Paid"])
+                amountReceivedOrig = float(raw[i, "Amount Received"])
+                amountPaidOrig = float(raw[i, "Amount Paid"])
 
-                    isl = int(raw[i, "Is Laundering"])
+                isl = int(raw[i, "Is Laundering"])
 
-                    line = '%d,%d,%d,%d,%f,%d,%f,%d,%d,%d\n' % \
-                        (i, fromId, toId, ts, amountPaidOrig,
-                        cur2, amountReceivedOrig, cur1, fmt, isl)
+                line = '%d,%d,%d,%d,%f,%d,%f,%d,%d,%d\n' % \
+                    (i, fromId, toId, ts, amountPaidOrig,
+                     cur2, amountReceivedOrig, cur1, fmt, isl)
 
-                    writer.write(line)
+                writer.write(line)
 
-            formatted = datatable.fread(formatted_trans_file)
-            formatted = formatted[:, :, datatable.sort(3)]
-            formatted.to_csv(formatted_trans_file)
-            del formatted
-            del raw
+        formatted = datatable.fread(formatted_trans_file)
+        formatted = formatted[:, :, datatable.sort(3)]
+        formatted.to_csv(formatted_trans_file)
+        del formatted
+        del raw
 
         ################################################################
         # Step 2. Load datatable as a PyG data object. Adopt codes from
@@ -564,15 +558,9 @@ class AMLworld(InMemoryDataset):
                 # which contains the indices of each day seperately
                 split_inds[i].append(daily_inds[day])
 
-        # Compute and save data objects
-        file_dict = self.processed_file_paths_by_split
-
         tr_inds = torch.cat(split_inds[0])
         val_inds = torch.cat(split_inds[1])
         te_inds = torch.cat(split_inds[2])
-        torch.save(tr_inds, file_dict["train_inds"])
-        torch.save(val_inds, file_dict["val_inds"])
-        torch.save(te_inds, file_dict["test_inds"])
 
         infor_str_list.append(
             "Total train samples: "
@@ -618,13 +606,15 @@ class AMLworld(InMemoryDataset):
         for id, feature in enumerate(edge_features):
             edge_features_colID[feature] = id
 
+        # no_norm_features = ["Payment Format", "In-Port", "Out-Port"]
+        no_norm_features = []
         norm_col = []
         for feature, id in edge_features_colID.items():
-            if feature not in ["Payment Format"]:
+            if feature not in no_norm_features:
                 norm_col.append(id)
 
-        # # Compute and save data objects
-        # file_dict = self.processed_file_paths_by_split
+        # Compute and save data objects
+        file_dict = self.processed_file_paths_by_split
 
         tr_edge_index = edge_index[:, e_tr]
         tr_edge_attr = edge_attr[e_tr]
@@ -634,12 +624,11 @@ class AMLworld(InMemoryDataset):
                             y=tr_y,
                             edge_index=tr_edge_index,
                             edge_attr=tr_edge_attr,
-                            timestamps=tr_edge_times,
-                            tr_inds=tr_inds)
-        # tr_nodes = torch.unique(tr_edge_index.view(-1))
-        # tr_data = tr_data.subgraph(tr_nodes)
-        # del tr_nodes
-        # self.infer_licit_x(tr_data)
+                            timestamps=tr_edge_times)
+        tr_nodes = torch.unique(tr_edge_index.view(-1))
+        tr_data = tr_data.subgraph(tr_nodes)
+        del tr_nodes
+        self.infer_licit_x(tr_data)
         tr_data.add_ports()
         tr_data.add_time_deltas()
         tr_data.x = z_norm(tr_data.x)
@@ -652,12 +641,6 @@ class AMLworld(InMemoryDataset):
             tr_data = self.pre_filter(tr_data)
         if self.pre_transform is not None:
             tr_data = self.pre_transform(tr_data)
-        # tr_data.tr_inds = tr_inds
-
-        if self.a.reverse_mp:
-            tr_data = create_hetero_obj(tr_data.x, tr_data.y,
-                                        tr_data.edge_index, tr_data.edge_attr,
-                                        tr_data.timestamps, tr_data.tr_inds, self.a)
         torch.save(tr_data, file_dict["train"])
 
         del (tr_x, tr_edge_attr, tr_edge_index, tr_edge_times, tr_inds, tr_y,
@@ -671,12 +654,11 @@ class AMLworld(InMemoryDataset):
                              y=val_y,
                              edge_index=val_edge_index,
                              edge_attr=val_edge_attr,
-                             timestamps=val_edge_times,
-                             val_inds=val_inds)
-        # val_nodes = torch.unique(val_edge_index.view(-1))
-        # val_data = val_data.subgraph(val_nodes)
-        # del val_nodes
-        # self.infer_licit_x(val_data)
+                             timestamps=val_edge_times)
+        val_nodes = torch.unique(val_edge_index.view(-1))
+        val_data = val_data.subgraph(val_nodes)
+        del val_nodes
+        self.infer_licit_x(val_data)
         val_data.add_ports()
         val_data.add_time_deltas()
         val_data.x = z_norm(val_data.x)
@@ -690,12 +672,6 @@ class AMLworld(InMemoryDataset):
             val_data = self.pre_filter(val_data)
         if self.pre_transform is not None:
             val_data = self.pre_transform(val_data)
-        # val_data.val_inds = val_inds
-        if self.a.reverse_mp:
-            val_data = create_hetero_obj(val_data.x, val_data.y,
-                                         val_data.edge_index,
-                                         val_data.edge_attr,
-                                         val_data.timestamps, val_data.val_inds, self.a)
         torch.save(val_data, file_dict["val"])
         del (val_x, val_edge_attr, val_edge_index, val_edge_times, val_inds,
              val_y, e_val, val_data)
@@ -708,12 +684,11 @@ class AMLworld(InMemoryDataset):
                             y=te_y,
                             edge_index=te_edge_index,
                             edge_attr=te_edge_attr,
-                            timestamps=te_edge_times,
-                            te_inds=te_inds)
-        # te_nodes = torch.unique(te_edge_index.view(-1))
-        # te_data = te_data.subgraph(te_nodes)
-        # del te_nodes
-        # self.infer_licit_x(te_data)
+                            timestamps=te_edge_times)
+        te_nodes = torch.unique(te_edge_index.view(-1))
+        te_data = te_data.subgraph(te_nodes)
+        del te_nodes
+        self.infer_licit_x(te_data)
         te_data.add_ports()
         te_data.add_time_deltas()
         te_data.x = z_norm(te_data.x)
@@ -726,11 +701,6 @@ class AMLworld(InMemoryDataset):
             te_data = self.pre_filter(te_data)
         if self.pre_transform is not None:
             te_data = self.pre_transform(te_data)
-        # te_data.te_inds = te_inds
-        if self.a.reverse_mp:
-            te_data = create_hetero_obj(te_data.x, te_data.y,
-                                        te_data.edge_index, te_data.edge_attr,
-                                        te_data.timestamps, te_data.te_inds, self.a)
         torch.save(te_data, file_dict["test"])
         del (te_x, te_edge_attr, te_edge_index, te_edge_times, te_inds, te_y,
              e_te, te_data)
