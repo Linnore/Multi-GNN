@@ -641,6 +641,7 @@ class AMLworld(InMemoryDataset):
             tr_data = self.pre_filter(tr_data)
         if self.pre_transform is not None:
             tr_data = self.pre_transform(tr_data)
+        tr_data.tr_inds = tr_inds
         torch.save(tr_data, file_dict["train"])
 
         del (tr_x, tr_edge_attr, tr_edge_index, tr_edge_times, tr_inds, tr_y,
@@ -672,6 +673,7 @@ class AMLworld(InMemoryDataset):
             val_data = self.pre_filter(val_data)
         if self.pre_transform is not None:
             val_data = self.pre_transform(val_data)
+        val_data.val_inds = val_inds
         torch.save(val_data, file_dict["val"])
         del (val_x, val_edge_attr, val_edge_index, val_edge_times, val_inds,
              val_y, e_val, val_data)
@@ -701,6 +703,7 @@ class AMLworld(InMemoryDataset):
             te_data = self.pre_filter(te_data)
         if self.pre_transform is not None:
             te_data = self.pre_transform(te_data)
+        te_data.te_inds = te_inds
         torch.save(te_data, file_dict["test"])
         del (te_x, te_edge_attr, te_edge_index, te_edge_times, te_inds, te_y,
              e_te, te_data)
