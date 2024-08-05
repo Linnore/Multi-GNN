@@ -25,7 +25,7 @@ def get_processed_path(args):
     return file_path
 
 
-def get_data(args):
+def get_data(args, data_config):
     '''Loads the AML transaction data.
     
     1. The data is loaded from the csv and the necessary features are chosen.
