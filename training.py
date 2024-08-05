@@ -38,6 +38,8 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds,
             ground_truth = batch.y[mask]
             preds.append(pred.argmax(dim=-1))
             ground_truths.append(ground_truth)
+            ground_truth = ground_truth.long()
+            
             loss = loss_fn(pred, ground_truth)
 
             loss.backward()
@@ -111,6 +113,8 @@ def train_hetero(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds,
             ground_truth = batch['node', 'to', 'node'].y[mask]
             preds.append(pred.argmax(dim=-1))
             ground_truths.append(batch['node', 'to', 'node'].y[mask])
+            ground_truth = ground_truth.long()
+
             loss = loss_fn(pred, ground_truth)
 
             loss.backward()
